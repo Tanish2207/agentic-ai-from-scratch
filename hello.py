@@ -1,5 +1,4 @@
 import os
-import json
 from ollama import Client
 from dotenv import load_dotenv
 import requests
@@ -7,7 +6,6 @@ import requests
 load_dotenv()
 
 print(os.environ.get("OLLAMA_API_KEY"))
-
 
 client = Client(
     host="https://ollama.com",
@@ -32,10 +30,6 @@ messages = [
 #   print(part.message.content, end='', flush=True)
 
 
-# for part in client.chat('qwen3.5', messages=messages, stream=True):
-#   print(part['message']['thinking'], end='')
-
-
 # ============================================================
 # Weather Tool
 # ============================================================
@@ -55,7 +49,6 @@ def get_weather(lat: int, lon: int) -> str:
 
 
 # get_weather(51.5074, -0.1278)
-
 
 # ============================================================
 # Weather Tool Schema
@@ -88,11 +81,6 @@ query2 = "What is the weather in Thane today. The date today is 6th April 2026. 
 messages = [
     {"role": "user", "content": query2},
 ]
-
-# for part in client.chat(
-#     "glm-5:cloud", messages=messages, tools=[weather_tool_schema], stream=True
-# ):
-#     print(part.message.content, end="", flush=True)
 
 
 # ============================================================
@@ -142,16 +130,6 @@ messages = [
     {"role": "user", "content": query3},
 ]
 
-# for part in client.chat(
-#     "glm-5:cloud",
-#     messages=messages,
-#     tools=[weather_tool_schema, geocoding_tool_schema],
-#     stream=True,
-# ):
-#     print(part.message)
-#     print("😭😭😭")
-
-
 # ============================================================
 # Agentic Framework
 # ============================================================
@@ -182,6 +160,8 @@ class MyAgent:
     def execute(self):
         while True:
             tool_called = False
+            thinking_started = False
+            answer_started = False
 
             for completion in self.client.chat(
                 model=self.model,
@@ -191,28 +171,45 @@ class MyAgent:
             ):
                 response_msg = completion.message
                 # print("🌸", response_msg.thinking)
+
+                # THINKING PART
                 if getattr(response_msg, "thinking", None):
-                    print("THINKING:", response_msg.thinking)
+                    # print("THINKING:", response_msg.thinking)
+                    if not thinking_started:
+                        print("\n🧠 Thining...\n", end='', flush=True)
+                        thinking_started = True
+                    print(response_msg.thinking, end='', flush=True)
+                
 
+                # CONTENT PART
                 if getattr(response_msg, "content", None):
-                    print("CONTENT:", response_msg.content)
+                    # print("CONTENT:", response_msg.content)
+                    if not answer_started:
+                        answer_started = True
+                        print("\n💬 Asnwer...\n", end='', flush=True)
+                    print(response_msg.content, end='', flush=True)
 
+
+                # TOOL PART
                 if response_msg.tool_calls is not None:
-                    print("✅ Tool Call needed", response_msg.tool_calls)
+                    # print("✅ Tool Call needed", response_msg.tool_calls)
+                    print("\n🔧 Tool Call:")
                     self.messages.append(response_msg)
 
                     tool_outputs = []
                     for tool_call in response_msg.tool_calls:
                         fn_name = tool_call.function.name
                         fn_args = tool_call.function.arguments
+                        print(f"    -> {fn_name}({fn_args})")
 
                         tool_output_content = f"Tool {fn_name} not found"
+
                         if fn_name in globals() and callable(globals()[fn_name]):
                             fn_to_call = globals()[fn_name]
                             executed_output = fn_to_call(**fn_args)
                             tool_output_content = str(executed_output)
 
-                        print("*" * 10, tool_output_content)
+                        print(tool_output_content)
                         tool_outputs.append(
                             {
                                 "role": "tool",
@@ -222,12 +219,13 @@ class MyAgent:
                         )
 
                     self.messages.extend(tool_outputs)
+
                     tool_called = True
                     break
 
             if tool_called:
                 continue
-        
+            print("\n")
             return response_msg.content
         
 
@@ -235,18 +233,17 @@ class MyAgent:
 # ============================================================
 
 
-query4 = "What is the temperature in Thane today. The date today is 8th April 2026."
-# query5 = "What are the latitude and longitude of Thane?"
-# messages = [
-#     {"role": "user", "content": query5},
-# ]
+query4 = "I live in Thane. I want to go out and play at a park. What things do i need to carry with me seeing today's weather conditions?"
+
 
 og = MyAgent(
     client=client,
     model="glm-5:cloud",
-    system="You are a helpful agent. You always provide the final answer in a complete sentence with correct grammar",
+    system="You are a helpful agent.",
     tools=[weather_tool_schema, geocoding_tool_schema],
 )
 
 print("⚠️⚠️")
 final_result = og(query4)
+print("⚠️⚠️")
+print(final_result)
