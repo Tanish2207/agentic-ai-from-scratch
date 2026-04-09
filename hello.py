@@ -2,6 +2,7 @@ import os
 from ollama import Client
 from dotenv import load_dotenv
 import requests
+import httpx
 
 load_dotenv()
 
@@ -37,8 +38,35 @@ messages = [
 
 def get_weather(lat: int, lon: int) -> str:
     """Get the current weather details in a given city"""
-    url = "https://api.api-ninjas.com/v1/weather?lat={}&lon={}".format(lat, lon)
+    url = "https://api.api-ninjas.com/v1/weather?lat={}x&lon={}".format(lat, lon)
     api_key = os.environ.get("WEATHER_API_KEY")
+
+    # hds = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+
+    # response = requests.get(url, headers=hds)
+    # data = response.json()
+    # return data
+
+    try:
+        response = httpx.get(url, timeout=5.0)
+        response.raise_for_status()
+        return {"success": True, "data": response.json}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# get_weather(51.5074, -0.1278)
+# ============================================================
+# Weather Tool 2
+# ============================================================
+
+
+def get_weather2(lat: int, lon: int) -> str:
+    """Get the current weather details in a given city"""
+    api_key = os.environ.get("WEATHER_APIS_API")
+    url = "https://api.weatherapi.com/v1/current.json?q={},{}?key={}".format(
+        lat, lon, api_key
+    )
 
     hds = {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
@@ -48,8 +76,6 @@ def get_weather(lat: int, lon: int) -> str:
     return data
 
 
-# get_weather(51.5074, -0.1278)
-
 # ============================================================
 # Weather Tool Schema
 # ============================================================
@@ -58,6 +84,32 @@ weather_tool_schema = {
     "type": "function",
     "function": {
         "name": "get_weather",
+        "description": "Get the current weather details in a given city",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "lat": {
+                    "type": "number",
+                    "description": "The Latitude of the place to get the weather for.",
+                },
+                "lon": {
+                    "type": "number",
+                    "description": "The Longitude of the place to get the weather for.",
+                },
+            },
+            "required": ["lat", "lon"],
+        },
+    },
+}
+
+# ============================================================
+# Weather Tool Schema 2
+# ============================================================
+
+weather_tool_schema2 = {
+    "type": "function",
+    "function": {
+        "name": "get_weather2",
         "description": "Get the current weather details in a given city",
         "parameters": {
             "type": "object",
@@ -176,19 +228,17 @@ class MyAgent:
                 if getattr(response_msg, "thinking", None):
                     # print("THINKING:", response_msg.thinking)
                     if not thinking_started:
-                        print("\n🧠 Thining...\n", end='', flush=True)
+                        print("\n🧠 Thining...\n", end="", flush=True)
                         thinking_started = True
-                    print(response_msg.thinking, end='', flush=True)
-                
+                    print(response_msg.thinking, end="", flush=True)
 
                 # CONTENT PART
                 if getattr(response_msg, "content", None):
                     # print("CONTENT:", response_msg.content)
                     if not answer_started:
                         answer_started = True
-                        print("\n💬 Asnwer...\n", end='', flush=True)
-                    print(response_msg.content, end='', flush=True)
-
+                        print("\n💬 Asnwer...\n", end="", flush=True)
+                    print(response_msg.content, end="", flush=True)
 
                 # TOOL PART
                 if response_msg.tool_calls is not None:
@@ -227,7 +277,6 @@ class MyAgent:
                 continue
             print("\n")
             return response_msg.content
-        
 
 
 # ============================================================
@@ -240,7 +289,7 @@ og = MyAgent(
     client=client,
     model="glm-5:cloud",
     system="You are a helpful agent.",
-    tools=[weather_tool_schema, geocoding_tool_schema],
+    tools=[weather_tool_schema, weather_tool_schema2, geocoding_tool_schema],
 )
 
 print("⚠️⚠️")
