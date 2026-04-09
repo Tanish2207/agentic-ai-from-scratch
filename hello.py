@@ -6,7 +6,7 @@ import httpx
 
 load_dotenv()
 
-print(os.environ.get("OLLAMA_API_KEY"))
+# print(os.environ.get("OLLAMA_API_KEY"))
 
 client = Client(
     host="https://ollama.com",
@@ -41,21 +41,16 @@ def get_weather(lat: int, lon: int) -> str:
     url = "https://api.api-ninjas.com/v1/weather?lat={}x&lon={}".format(lat, lon)
     api_key = os.environ.get("WEATHER_API_KEY")
 
-    # hds = {"X-Api-Key": api_key, "Content-Type": "application/json"}
-
-    # response = requests.get(url, headers=hds)
-    # data = response.json()
-    # return data
-
     try:
-        response = httpx.get(url, timeout=5.0)
-        response.raise_for_status()
-        return {"success": True, "data": response.json}
+        hds = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+        response = requests.get(url, headers=hds)
+        return {"success": True, "data": response.json()}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 # get_weather(51.5074, -0.1278)
+
 # ============================================================
 # Weather Tool 2
 # ============================================================
@@ -63,18 +58,17 @@ def get_weather(lat: int, lon: int) -> str:
 
 def get_weather2(lat: int, lon: int) -> str:
     """Get the current weather details in a given city"""
-    api_key = os.environ.get("WEATHER_APIS_API")
-    url = "https://api.weatherapi.com/v1/current.json?q={},{}?key={}".format(
-        lat, lon, api_key
-    )
+    url = "https://api.ambeedata.com/weather/latest/by-lat-lng?lat={}&lng={}".format(lat, lon)
+    api_key = os.environ.get("AMBEE_API_KEY")
 
-    hds = {"X-Api-Key": api_key, "Content-Type": "application/json"}
-
-    response = requests.get(url, headers=hds)
-    data = response.json()
-    # print(data)
-    return data
-
+    try:
+        hds = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+        response = requests.get(url, headers=hds)
+        return {"success": True, "data": response.json()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    
+    
 
 # ============================================================
 # Weather Tool Schema
@@ -282,17 +276,28 @@ class MyAgent:
 # ============================================================
 
 
-query4 = "I live in Thane. I want to go out and play at a park. What things do i need to carry with me seeing today's weather conditions?"
+# query4 = "I live in Mumbai. I want to go out and play at a park. What things do i need to carry with me? Today is 9th april 2026."
+
+user_query = input("Enter your query: \n")
 
 
 og = MyAgent(
     client=client,
     model="glm-5:cloud",
-    system="You are a helpful agent.",
+    system="""
+    You are a helpful AI agent that can use tools to solve user queries.
+
+When a user asks a question:
+- Understand the intent carefully.
+- Use available tools whenever required to get accurate information.
+- If a tool fails or returns an error, do NOT stop.
+- Try alternative tools if available.
+- If multiple tools can solve the task, choose the most appropriate one.
+
+Be concise, accurate, and logical in your reasoning
+""",
     tools=[weather_tool_schema, weather_tool_schema2, geocoding_tool_schema],
 )
 
 print("⚠️⚠️")
-final_result = og(query4)
-print("⚠️⚠️")
-print(final_result)
+og(user_query)
